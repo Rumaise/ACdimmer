@@ -5,8 +5,6 @@
  *      Author: hodai
  */
 
-
-#include <MsTimer2.h>
 #include <RTevents.h>
 #include <ACdimmer.h>
 
