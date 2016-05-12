@@ -13,12 +13,18 @@
 #define AC_DIMMER_DETACH(pin) detachInterrupt(AC_DIMMER_PIN_TO_INTERRUPT(pin));
 #define AC_DIMMER_ATTACH(pin) attachInterrupt(AC_DIMMER_PIN_TO_INTERRUPT(pin), ACdimmer::zeroDetectorISR, FALLING);
 
-// TODO - use real uSec timer
-#define AC_DIMMER_ATTACH_TIMER_US(us) RTevents::addTask(&ACdimmer::trigerTheTriacISR, (us/1000), 0);
+#define AC_DIMMER_ATTACH_TIMER_US(us) RTevents::addTask(&ACdimmer::trigerTheTriacISR, us, 0);
+
+
+#define AC_DIMMER_WAVE_FRIQ_HZ              60   // 50 for USA
+#define AC_DIMMER_WAVE_LENGTH_US            ((1000*1000) / AC_DIMMER_WAVE_FRIQ_HZ)
+#define AC_DIMMER_ZERO_DETECT_DELAY_US      100                                     // TODO - need to adjust
 
 #define AC_DIMMER_TRIGER_INTERVAL_US        50
 #define AC_DIMMER_TRIGER_DELAY_US_MIN       0
-#define AC_DIMMER_TRIGER_DELAY_US_MAX       8333        // half wave length
+#define AC_DIMMER_TRIGER_DELAY_US_MAX       ((AC_DIMMER_WAVE_LENGTH_US / 2) \
+                                             - AC_DIMMER_TRIGER_INTERVAL_US \
+                                             - AC_DIMMER_ZERO_DETECT_DELAY_US)
 
 /* statics members */
 ACdimmer* ACdimmer::theDimmer;     // used for the ISR functions
