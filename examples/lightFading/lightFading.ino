@@ -10,10 +10,12 @@
 #include <RTevents.h>
 #include <ACdimmer.h>
 
-#define STEPS ((AC_DIMMER_VALUE_MAX - AC_DIMMER_VALUE_MIN)/100)
-int outPin = 4;   // the pin connected to the triac gate
-int i = AC_DIMMER_VALUE_MIN;
+#define STEPS ((AC_DIMMER_VALUE_MAX - AC_DIMMER_VALUE_MIN)/0xFF)
 
+int outPin = 4;   // the pin connected to the triac gate
+int val = AC_DIMMER_VALUE_MIN;
+
+/* zero cros detector connected to pin 3 */
 ACdimmer myDimmer(outPin, AC_DIMMER_PIN_3);
 
 void setup() {
@@ -22,13 +24,13 @@ void setup() {
 
 void loop() {
 
-  i+=STEPS;
+  val+=STEPS;
 
-  if (i > AC_DIMMER_VALUE_MAX) {
-    i = AC_DIMMER_VALUE_MIN;
+  if (val > AC_DIMMER_VALUE_MAX) {
+    val = AC_DIMMER_VALUE_MIN;
   }
 
-  myDimmer.setValue(i);
+  myDimmer.setValue(val);
 
   delay(50);
 
