@@ -8,7 +8,7 @@
 #ifndef ACDIMMER_H_
 #define ACDIMMER_H_
 
-#include "RTevents.h"
+//#include "RTevents.h"
 
 #if ARDUINO < 100
 #include <WProgram.h>
@@ -45,8 +45,11 @@ enum ACdimmerIntPin {
 class ACdimmer {
 private:
     static ACdimmer* theDimmer;     // used for the ISR functions
+    static bool firstDimmer;
+
+    static ACdimmerIntPin zeroCrossPin;
+
     uint8_t _outputPin;
-    ACdimmerIntPin _zeroCrossPin;
     volatile uint8_t _outValue;
     volatile uint8_t _fadingSpeed;
 
