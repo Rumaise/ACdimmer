@@ -10,7 +10,7 @@
 #define STEPS 1
 
 int outPin = 4;   // the pin connected to the triac gate
-int level = AC_DIMMER_VALUE_MIN;
+uint8_t level = AC_DIMMER_VALUE_MIN;
 
 /* zero cros detector connected to pin 3 */
 ACdimmer myDimmer(outPin, AC_DIMMER_PIN_3);
