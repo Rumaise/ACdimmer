@@ -6,6 +6,8 @@
  */
 
 #include "ACdimmer.h"
+
+#define RT_TIMER_AUTOSTOP
 #include "RTtimer.h"
 
 // TODO - is better to use the follow syntax:
@@ -20,16 +22,18 @@
 #define AC_DIMMER_LEVEL_TO_OFSET(level) (map((AC_DIMMER_VALUE_MAX-(level)), \
                                          AC_DIMMER_VALUE_MIN , AC_DIMMER_VALUE_MAX, \
                                          AC_DIMMER_TRIGER_DELAY_US_MIN, AC_DIMMER_TRIGER_DELAY_US_MAX))
-#define AC_DIMMER_OFSET_TO_LEVEL(ofset) /* TODO */
+#define AC_DIMMER_OFSET_TO_LEVEL(ofset) /* TODO - not needed for now*/
 
-#define AC_DIMMER_WAVE_FRIQ_HZ              60   // 50 for USA
+#define AC_DIMMER_WAVE_FRIQ_HZ              50   // 60 for USA
 #define AC_DIMMER_WAVE_LENGTH_US            ((1000*1000L) / AC_DIMMER_WAVE_FRIQ_HZ)
-#define AC_DIMMER_ZERO_DETECT_DELAY_US      100                                     // TODO - need to adjust
 
-#define AC_DIMMER_TRIGER_INTERVAL_US        100
-#define AC_DIMMER_TRIGER_DELAY_US_MIN       100
-#define AC_DIMMER_TRIGER_DELAY_US_MAX       ((AC_DIMMER_WAVE_LENGTH_US / 2)  )
-                                             //- AC_DIMMER_TRIGER_INTERVAL_US \
+#define AC_DIMMER_ZERO_DETECT_DELAY_US      1500   // this is the delay of the zero detection hardware - need to be adjusted
+
+#define AC_DIMMER_TRIGER_INTERVAL_US        5      // minimum time needed for the Triac to be triggered in uSec
+
+#define AC_DIMMER_TRIGER_DELAY_US_MIN       20
+#define AC_DIMMER_TRIGER_DELAY_US_MAX       ((AC_DIMMER_WAVE_LENGTH_US / 2)\
+                                             - AC_DIMMER_TRIGER_INTERVAL_US \
                                              - AC_DIMMER_ZERO_DETECT_DELAY_US)
 
 
@@ -71,13 +75,21 @@ void ACdimmer::begin(){
 }
 
 bool ACdimmer::setValue(uint8_t newValue){
+
     if (AC_DIMMER_VALUE_MIN >= newValue) {
         _outValue = AC_DIMMER_VALUE_MIN;
         digitalWrite(_outputPin, LOW);
         AC_DIMMER_DETACH(zeroCrossPin);
         return true;
     }
+
     if (AC_DIMMER_VALUE_MAX <= newValue){
+        // in cases that zero detection device connected directly to the Triac Anodes
+        // if the Triac gate is Set (like in this case) the zero cross will not be detected
+        // (will see always 0v)
+        // if this is the case we must Clear the Triac gate in order to detect the zero cross
+        // when changing the value.
+
         _outValue = AC_DIMMER_VALUE_MIN;
         digitalWrite(_outputPin, HIGH);
         AC_DIMMER_DETACH(zeroCrossPin);
@@ -89,6 +101,8 @@ bool ACdimmer::setValue(uint8_t newValue){
         // digitalWrite(_outputPin, LOW); TODO - the next iteration will fix that
         AC_DIMMER_ATTACH(zeroCrossPin);
     }
+
+    digitalWrite(_outputPin, LOW);  // Clear the Triac gate in order to detect the zero cross
 
     _outValue = newValue;
 
@@ -103,6 +117,7 @@ bool ACdimmer::setFadeToValue(uint8_t newValue, uint8_t speed){
 void ACdimmer::zeroDetectorISR(){
     uint16_t trigerDelay;
     trigerDelay = AC_DIMMER_LEVEL_TO_OFSET(theDimmer->_outValue);
+
     AC_DIMMER_ATTACH_TIMER_US(trigerDelay);
 }
 
@@ -112,7 +127,7 @@ void ACdimmer::trigerTheTriacISR(){
 
 void ACdimmer::trigerTheTriac(){
     digitalWrite(_outputPin, HIGH);
-    // delay 50 uSec on output pulse to turn on triac
+    // delay on output pulse to turn on Triac
     delayMicroseconds(AC_DIMMER_TRIGER_INTERVAL_US);
     digitalWrite(_outputPin, LOW);
 
