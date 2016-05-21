@@ -50,8 +50,11 @@ private:
     static ACdimmerIntPin zeroCrossPin;
 
     uint8_t _outputPin;
-    volatile uint8_t _outValue;
-    volatile uint8_t _fadingSpeed;
+
+    volatile uint16_t _outDelay;
+
+    volatile int _fadingSteps;            // add this to the delay every zero cross
+    volatile uint16_t _fadingFinalDelay;
 
 public:
 
@@ -64,6 +67,7 @@ public:
     bool setFadeToValue(uint8_t newValue, uint8_t speed);
 
 private:
+    void setDelay(uint16_t newDelay);
 
     static void zeroDetectorISR();
 

@@ -43,8 +43,8 @@ ACdimmerIntPin ACdimmer::zeroCrossPin;
 bool ACdimmer::firstDimmer = true;
 
 ACdimmer::ACdimmer(uint8_t outputPin, ACdimmerIntPin zeroCrossPin) : _outputPin(outputPin),
-            _outValue(0),
-            _fadingSpeed(0){
+            _outDelay(0),
+            _fadingSteps(0){
     this->zeroCrossPin = zeroCrossPin;
 }
 
@@ -69,56 +69,106 @@ void ACdimmer::begin(){
     pinMode(_outputPin, OUTPUT);
 
     // starting at minimum value
-    _outValue = AC_DIMMER_VALUE_MIN;
+    _outDelay = AC_DIMMER_TRIGER_DELAY_US_MAX;
     digitalWrite(_outputPin, LOW);
 
 }
 
 bool ACdimmer::setValue(uint8_t newValue){
 
-    if (AC_DIMMER_VALUE_MIN >= newValue) {
-        _outValue = AC_DIMMER_VALUE_MIN;
-        digitalWrite(_outputPin, LOW);
-        AC_DIMMER_DETACH(zeroCrossPin);
-        return true;
-    }
+    // cancel the fading if any
+    _fadingFinalDelay = 0;
+    _fadingSteps = 0;
 
-    if (AC_DIMMER_VALUE_MAX <= newValue){
+    // change the trigger delay
+    setDelay(AC_DIMMER_LEVEL_TO_OFSET(newValue));
+
+    return true;
+}
+
+void ACdimmer::setDelay(uint16_t newDelay){
+
+    if (AC_DIMMER_TRIGER_DELAY_US_MIN >= newDelay){
         // in cases that zero detection device connected directly to the Triac Anodes
         // if the Triac gate is Set (like in this case) the zero cross will not be detected
         // (will see always 0v)
         // if this is the case we must Clear the Triac gate in order to detect the zero cross
         // when changing the value.
-
-        _outValue = AC_DIMMER_VALUE_MIN;
-        digitalWrite(_outputPin, HIGH);
+        _fadingSteps = 0;
+        _outDelay = AC_DIMMER_TRIGER_DELAY_US_MIN;
         AC_DIMMER_DETACH(zeroCrossPin);
-        return true;
+        RTtimer_stop();
+        digitalWrite(_outputPin, HIGH);
+        return;
     }
 
-    if(AC_DIMMER_VALUE_MIN >= _outValue || AC_DIMMER_VALUE_MAX <= _outValue) {
+    if (AC_DIMMER_TRIGER_DELAY_US_MAX <= newDelay) {
+        _fadingSteps = 0;
+        _outDelay = AC_DIMMER_TRIGER_DELAY_US_MAX;
+        AC_DIMMER_DETACH(zeroCrossPin);
+        RTtimer_stop();
+        digitalWrite(_outputPin, LOW);
+        return;
+    }
+
+    if(AC_DIMMER_TRIGER_DELAY_US_MIN >= _outDelay || AC_DIMMER_TRIGER_DELAY_US_MAX <= _outDelay) {
         // the interrupt is disabled, need to activate it
         // digitalWrite(_outputPin, LOW); TODO - the next iteration will fix that
         AC_DIMMER_ATTACH(zeroCrossPin);
     }
 
+    // fading handle
+    if ( (0 > _fadingSteps && _fadingFinalDelay >= newDelay) ||
+                (0 < _fadingSteps && _fadingFinalDelay <= newDelay) ){
+        _fadingSteps = 0;
+        newDelay = _fadingFinalDelay;
+    }
+
     digitalWrite(_outputPin, LOW);  // Clear the Triac gate in order to detect the zero cross
 
-    _outValue = newValue;
+    _outDelay = newDelay;
+
+    return;
+}
+
+bool ACdimmer::setFadeToValue(uint8_t newValue, uint8_t speed){
+
+    if(0 == speed){
+        return setValue(newValue);
+    }
+
+    _fadingFinalDelay = AC_DIMMER_LEVEL_TO_OFSET(newValue);
+
+    if (_outDelay < _fadingFinalDelay){
+        _fadingSteps = speed;
+    } else {
+        _fadingSteps = -speed;
+    }
+
+    // change the trigger delay (first step)
+    setDelay(_outDelay + _fadingSteps);
 
     return true;
 }
 
-bool ACdimmer::setFadeToValue(uint8_t newValue, uint8_t speed){
-    // TODO - need to implement
-    return false;
-}
-
 void ACdimmer::zeroDetectorISR(){
-    uint16_t trigerDelay;
-    trigerDelay = AC_DIMMER_LEVEL_TO_OFSET(theDimmer->_outValue);
+    long tempNewDelay;
 
-    AC_DIMMER_ATTACH_TIMER_US(trigerDelay);
+    AC_DIMMER_ATTACH_TIMER_US(theDimmer->_outDelay);
+
+    // after attaching the trigger handle the fading mechanism
+    if (0 != theDimmer->_fadingSteps) {
+        tempNewDelay = theDimmer->_outDelay + theDimmer->_fadingSteps;
+
+        // check for uint16 overflow
+        if (AC_DIMMER_TRIGER_DELAY_US_MIN > tempNewDelay || AC_DIMMER_TRIGER_DELAY_US_MAX < tempNewDelay){
+            tempNewDelay = theDimmer->_fadingFinalDelay;
+        }
+
+        // update the trigger delay
+        theDimmer->setDelay(tempNewDelay);
+    }
+
 }
 
 void ACdimmer::trigerTheTriacISR(){
