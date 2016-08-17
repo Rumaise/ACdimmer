@@ -64,7 +64,7 @@ public:
 
     bool setValue(uint8_t newValue);
 
-    bool setFadeToValue(uint8_t newValue, uint8_t speed);
+    bool setFadeToValue(uint8_t newValue, uint16_t speed);
 
 private:
     void setDelay(uint16_t newDelay);

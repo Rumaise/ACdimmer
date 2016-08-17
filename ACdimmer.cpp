@@ -27,7 +27,7 @@
 #define AC_DIMMER_WAVE_FRIQ_HZ              50   // 60 for USA
 #define AC_DIMMER_WAVE_LENGTH_US            ((1000*1000L) / AC_DIMMER_WAVE_FRIQ_HZ)
 
-#define AC_DIMMER_ZERO_DETECT_DELAY_US      1500   // this is the delay of the zero detection hardware - need to be adjusted
+#define AC_DIMMER_ZERO_DETECT_DELAY_US      2000   // this is the delay of the zero detection hardware - need to be adjusted
 
 #define AC_DIMMER_TRIGER_INTERVAL_US        5      // minimum time needed for the Triac to be triggered in uSec
 
@@ -131,7 +131,8 @@ void ACdimmer::setDelay(uint16_t newDelay){
     return;
 }
 
-bool ACdimmer::setFadeToValue(uint8_t newValue, uint8_t speed){
+bool ACdimmer::setFadeToValue(uint8_t newValue, uint16_t speed){
+    long tempNewDelay;
 
     if(0 == speed){
         return setValue(newValue);
@@ -146,7 +147,11 @@ bool ACdimmer::setFadeToValue(uint8_t newValue, uint8_t speed){
     }
 
     // change the trigger delay (first step)
-    setDelay(_outDelay + _fadingSteps);
+    tempNewDelay = _outDelay + _fadingSteps;
+    if (AC_DIMMER_TRIGER_DELAY_US_MIN > tempNewDelay || AC_DIMMER_TRIGER_DELAY_US_MAX < tempNewDelay){
+        tempNewDelay = theDimmer->_fadingFinalDelay;
+    }
+    setDelay(tempNewDelay);
 
     return true;
 }
@@ -182,6 +187,5 @@ void ACdimmer::trigerTheTriac(){
     digitalWrite(_outputPin, LOW);
 
 }
-
 
 
